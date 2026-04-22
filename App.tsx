@@ -20,7 +20,9 @@ import {
   QrCode,
   ArrowLeft,
   Download,
-  Share2
+  Share2,
+  Lock,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -34,7 +36,11 @@ export default function App() {
   const [isSimulatingDelay, setIsSimulatingDelay] = useState(false);
   const [showItinerary, setShowItinerary] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [view, setView] = useState<'planner' | 'history' | 'tickets' | 'boarding-pass'>('planner');
+  const [view, setView] = useState<'planner' | 'history' | 'tickets' | 'boarding-pass' | 'checkout' | 'confirmed' | 'apple-wallet'>('planner');
+  const [showWalletSuccess, setShowWalletSuccess] = useState(false);
+  const [checkoutData, setCheckoutData] = useState({ name: '', card: '', expiry: '', cvv: '' });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isPayButtonPressed, setIsPayButtonPressed] = useState(false);
   const [tickets, setTickets] = useState<any[]>([
     {
       id: 'BR-102',
@@ -105,11 +111,390 @@ export default function App() {
       passenger: 'Rob Wilson',
       isDelayed: isSimulatingDelay && !isDirectSkyport
     };
-    setTickets([newTicket, ...tickets]);
     setSelectedTicket(newTicket);
-    setView('boarding-pass');
+    setCheckoutData({ name: '', card: '', expiry: '', cvv: '' });
+    setIsProcessingPayment(false);
+    setIsPayButtonPressed(false);
+    setView('checkout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    if (view === 'checkout') {
+      const timers = [
+        setTimeout(() => setCheckoutData(prev => ({ ...prev, name: 'John Smith' })), 500),
+        setTimeout(() => setCheckoutData(prev => ({ ...prev, card: '**** **** **** 4444' })), 1000),
+        setTimeout(() => setCheckoutData(prev => ({ ...prev, expiry: '10/28', cvv: '***' })), 1500),
+        setTimeout(() => {
+          setIsPayButtonPressed(true);
+          setTimeout(() => {
+            setIsProcessingPayment(true);
+            setTimeout(() => {
+              // Finalize purchase
+              setTickets(prev => [selectedTicket, ...prev]);
+              setView('confirmed');
+            }, 1500);
+          }, 300);
+        }, 2500)
+      ];
+      return () => timers.forEach(clearTimeout);
+    }
+  }, [view, selectedTicket]);
+
+  if (view === 'checkout') {
+    return (
+      <div className="min-h-screen flex flex-col max-w-md mx-auto bg-slate-50 shadow-2xl relative overflow-hidden font-sans">
+        <header className="bg-navy p-6 text-white sticky top-0 z-50 flex items-center gap-4">
+          <button onClick={() => setView('planner')} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-xl font-bold">Secure Checkout</h1>
+        </header>
+        
+        <main className="flex-1 p-6 space-y-8">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
+                <p className="text-2xl font-black text-navy font-mono">£150.00</p>
+              </div>
+              <ShieldCheck size={32} className="text-emerald-500" />
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cardholder Name</label>
+                <input 
+                  type="text" 
+                  readOnly
+                  placeholder="Full Name"
+                  value={checkoutData.name}
+                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-semibold text-navy focus:ring-2 focus:ring-electric transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Card Number</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    readOnly
+                    placeholder="0000 0000 0000 0000"
+                    value={checkoutData.card}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-semibold text-navy focus:ring-2 focus:ring-electric transition-all"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
+                    <div className="w-6 h-4 bg-slate-200 rounded-sm"></div>
+                    <div className="w-6 h-4 bg-slate-300 rounded-sm"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Expiry</label>
+                  <input 
+                    type="text" 
+                    readOnly
+                    placeholder="MM/YY"
+                    value={checkoutData.expiry}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-semibold text-navy focus:ring-2 focus:ring-electric transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">CVV</label>
+                  <input 
+                    type="password" 
+                    readOnly
+                    placeholder="***"
+                    value={checkoutData.cvv}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-semibold text-navy focus:ring-2 focus:ring-electric transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
+            <Lock size={18} className="text-electric shrink-0" />
+            <p className="text-[10px] text-blue-800 leading-relaxed font-medium">
+              Your payment is encrypted and secured by Skyports Infrastructure. No card details are stored locally.
+            </p>
+          </div>
+        </main>
+
+        <footer className="p-6 bg-white border-t border-slate-100">
+          <button 
+            disabled={isProcessingPayment}
+            className={`w-full h-16 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 ${
+              isProcessingPayment 
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                : isPayButtonPressed 
+                  ? 'bg-blue-600 text-white scale-95 shadow-inner' 
+                  : 'bg-electric text-white shadow-lg shadow-blue-200 active:scale-95'
+            }`}
+          >
+            {isProcessingPayment ? (
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                className="w-6 h-6 border-2 border-slate-300 border-t-slate-500 rounded-full"
+              />
+            ) : (
+              <>
+                <ShieldCheck size={20} />
+                Pay Now
+              </>
+            )}
+          </button>
+        </footer>
+      </div>
+    );
+  }
+
+  if (view === 'confirmed') {
+    return (
+      <div className="min-h-screen flex flex-col max-w-md mx-auto bg-slate-50 shadow-2xl relative overflow-hidden">
+        <main className="flex-1 p-6 flex flex-col items-center justify-center">
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-white mb-6 shadow-xl shadow-emerald-200"
+          >
+            <Check size={48} strokeWidth={3} />
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-2xl font-black text-navy mb-1"
+          >
+            Booking Confirmed
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-slate-500 text-xs font-medium mb-8"
+          >
+            Booking Reference: <span className="text-navy font-bold">OXC-2204-RW</span>
+          </motion.p>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="w-full bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-100 relative"
+          >
+            <div className="bg-navy p-6 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Plane size={80} className="-rotate-45" />
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Route Summary</p>
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                {selectedTicket?.start.split(' ')[0]} 
+                <ArrowRightLeft size={12} className="text-electric" /> 
+                {selectedTicket?.destination.split(' ')[0]}
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Flight Detail</p>
+                    <p className="text-xs font-bold text-navy">Bristow AAM Flight</p>
+                  </div>
+                  <div className="flex gap-6">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Slot</p>
+                      <p className="text-xs font-bold text-navy">{selectedTicket?.slot || '14:30'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aircraft</p>
+                      <p className="text-xs font-bold text-navy">VX-4</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <QRCodeSVG 
+                    value={`BOOKING-${selectedTicket?.id || 'RW001'}`} 
+                    size={64}
+                    level="H"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-electric/5 rounded-2xl border border-electric/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-electric" />
+                  <p className="text-[10px] font-bold text-navy uppercase tracking-widest">Boarding Status</p>
+                </div>
+                <p className="text-[10px] text-slate-600 leading-tight">
+                  Your ticket is now active. Please arrive at the skyport 15 minutes before your slot for security screening.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="w-full space-y-3 mt-8">
+            <button className="w-full bg-navy text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95">
+              <div className="flex -space-x-1">
+                <div className="w-5 h-5 bg-white rounded-md flex items-center justify-center p-0.5"><div className="w-full h-full bg-black rounded-[1px]"></div></div>
+              </div>
+              Add to Apple / Google Wallet
+            </button>
+            <button 
+              onClick={() => setView('planner')}
+              className="w-full bg-slate-100 text-slate-500 font-bold py-4 rounded-xl transition-transform active:scale-95"
+            >
+              Close
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (view === 'apple-wallet') {
+    return (
+      <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setView('boarding-pass')}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        />
+        <motion.div 
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="relative bg-zinc-100 rounded-t-[2.5rem] w-full max-w-md mx-auto h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+        >
+          {/* Header */}
+          <div className="p-6 flex justify-between items-center text-black">
+            <div className="flex items-center gap-2">
+              <img 
+                src="https://i.postimg.cc/TP3S4dY3/logo_png.png" 
+                alt="Skyports" 
+                className="h-5 invert grayscale brightness-0"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                setShowWalletSuccess(true);
+                setTimeout(() => {
+                  setShowWalletSuccess(false);
+                  setView('planner');
+                }, 2000);
+              }}
+              className="text-white bg-blue-600 px-6 py-2 rounded-full font-bold text-sm active:scale-95 transition-transform"
+            >
+              Add
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 pb-12">
+            <div className="text-center mb-4">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-4">Boarding Pass</p>
+            </div>
+
+            {/* The Pass Card */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-zinc-200">
+              <div className="bg-navy p-6 text-white relative overflow-hidden">
+                <div className="flex justify-between items-center relative z-10">
+                  <div className="text-center">
+                    <h3 className="text-4xl font-black tracking-tighter">BXM</h3>
+                    <p className="text-[10px] font-bold uppercase mt-1 opacity-60">Bicester</p>
+                  </div>
+                  <Plane size={24} className="text-electric" />
+                  <div className="text-center">
+                    <h3 className="text-4xl font-black tracking-tighter">CBG</h3>
+                    <p className="text-[10px] font-bold uppercase mt-1 opacity-60">Cambridge</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-8">
+                <div className="grid grid-cols-2 gap-y-6">
+                  <div>
+                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Passenger</p>
+                    <p className="text-sm font-bold text-black">John Smith</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Flight</p>
+                    <p className="text-sm font-bold text-black">BR-056</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Date</p>
+                    <p className="text-sm font-bold text-black">22 APR 2026</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Boarding</p>
+                    <p className="text-sm font-bold text-black">14:20</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Seat</p>
+                    <p className="text-sm font-bold text-black">02-B</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-100 pt-6">
+                  <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest mb-3">Unified Itinerary</p>
+                  <div className="flex items-center gap-2 text-zinc-600 text-xs font-semibold">
+                    <span>Bus (13:30)</span>
+                    <span className="text-zinc-300">|</span>
+                    <span>Shuttle (14:05)</span>
+                    <span className="text-zinc-300">|</span>
+                    <span>Flight (14:30)</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center py-6">
+                  <QRCodeSVG 
+                    value="SKYPORTS-APPLE-WALLET-SIM-ROB-WILSON" 
+                    size={160}
+                    level="H"
+                  />
+                  <p className="text-[8px] font-mono text-zinc-300 tracking-[0.4em] mt-4">APPLE-WALLET-PASS-ID-0X-BXM-CBG</p>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-center mt-6 text-[10px] text-zinc-400 px-8 leading-relaxed">
+              Scan this pass at any Bicester Motion or Cambridge Skyport terminal. Legality and terms apply.
+            </p>
+          </div>
+
+          {/* Success Overlay */}
+          <AnimatePresence>
+            {showWalletSuccess && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-white/90 backdrop-blur-md flex flex-col items-center justify-center z-[110]"
+              >
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', damping: 15 }}
+                  className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white mb-4"
+                >
+                  <Check size={40} />
+                </motion.div>
+                <p className="text-lg font-bold text-black">Added to Wallet</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (view === 'history') {
     return (
@@ -393,14 +778,29 @@ export default function App() {
           </motion.div>
 
           {/* Actions */}
-          <div className="w-full mt-8 grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl transition-all">
-              <Download size={20} />
-              Save
-            </button>
-            <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl transition-all">
-              <Share2 size={20} />
-              Share
+          <div className="w-full mt-8 flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl transition-all">
+                <Download size={20} />
+                Save
+              </button>
+              <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl transition-all">
+                <Share2 size={20} />
+                Share
+              </button>
+            </div>
+            <button 
+              onClick={() => setView('apple-wallet')}
+              className="w-full flex items-center justify-center gap-3 bg-black hover:bg-zinc-900 text-white font-bold py-4 rounded-2xl transition-all border border-white/10"
+            >
+              <div className="flex -space-x-1">
+                <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center p-0.5 shadow-sm">
+                  <div className="w-full h-full bg-black rounded-[2px] flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-2 bg-white/10 absolute top-1"></div>
+                  </div>
+                </div>
+              </div>
+              Add to Apple Wallet
             </button>
           </div>
 
